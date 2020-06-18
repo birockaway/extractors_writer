@@ -1,5 +1,6 @@
 import csv
 import logging
+from collections import Mapping, Iterable
 
 
 class Writer(object):
@@ -28,5 +29,10 @@ class Writer(object):
                 if chunk == 'DONE':
                     self.logger.info('DONE received. Exiting.')
                     break
-
-                results_writer.writerows(chunk)
+                elif isinstance(chunk, Mapping):  # dict, write single row
+                    results_writer.writerow(chunk)
+                elif isinstance(chunk, Iterable):  # list of dicts, write multiple rows
+                    results_writer.writerows(chunk)
+                else:
+                    logging.error(f'Chunk is neither Mapping, nor Iterable type. Chunk: {chunk}')
+                    logging.info('Skipping')
