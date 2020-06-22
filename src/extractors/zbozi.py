@@ -66,8 +66,13 @@ class ZboziProducer(object):
             yield seq[pos:pos + chunk_size]
 
     def get_products(self, ids_str):
-        response = requests.get(f'{URL_BASE}/v1/products/{ids_str}', auth=self.auth)
-        if response.status_code // 100 != 2:
+        try:
+            response = requests.get(f'{URL_BASE}/v1/products/{ids_str}', auth=self.auth, timeout=120)
+        except requests.exceptions.Timeout:
+            logger.warning(f'Products request timed out')
+            return None
+
+        if not response or response.status_code // 100 != 2:
             logger.warning(f'failed products get request: {response.status_code, response.text}')
             return None
 
@@ -102,11 +107,16 @@ class ZboziProducer(object):
             return product_pages
 
     def get_shop_names(self, shop_ids_str):
-        response = requests.get(f'{URL_BASE}/v1/shops/{shop_ids_str}',
-                                auth=self.auth)
+        try:
+            response = requests.get(f'{URL_BASE}/v1/shops/{shop_ids_str}', auth=self.auth, timeout=120)
+        except requests.exceptions.Timeout:
+            logger.warning(f'Shops request timed out')
+            return None
 
         if response.status_code // 100 != 2:
+            logger.warning(f'Shops request status not OK: {response.status_code, response.text}')
             return None
+
         return [{k: str(v) if v is not None else '' for k, v in d.items()} for d in response.json()['data']]
 
     def write_output(self, products_df):
@@ -186,11 +196,17 @@ class ZboziProducer(object):
             self.task_queue.put('DONE')
 
     def produce_batch(self):
-        response = requests.get(f'{URL_BASE}{self.next_url}', auth=self.auth)
-        while response.status_code // 100 != 2:
-            # TODO: handle specific error codes
+        try:
+            response = requests.get(f'{URL_BASE}{self.next_url}', auth=self.auth, timeout=120)
+        except requests.exceptions.Timeout:
+            response = None
+
+        while response and response.status_code // 100 != 2:
             time.sleep(1.01)
-            response = requests.get(f'{URL_BASE}{self.next_url}', auth=self.auth)
+            try:
+                response = requests.get(f'{URL_BASE}{self.next_url}', auth=self.auth, timeout=120)
+            except requests.exceptions.Timeout:
+                response = None
 
         content = json.loads(response.text)
         # set url for next run

@@ -72,7 +72,8 @@ class DatawepsProducer(object):
         scroll_limit = 0
         try:
             while last_page is False:
-                r = requests.get(url, auth=(user, pasw), params=payload)
+                # requests.get may raise timeout exception, let it end scraping
+                r = requests.get(url, auth=(user, pasw), params=payload, timeout=120)
                 resp = r.json()
 
                 if resp.get('code') == 429:

@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 import requests
 
 logger = logging.getLogger('ceneo')
-logger.setLevel(logging.DEBUG)
 
 
 def parse_offer(offer_raw):
@@ -42,9 +41,9 @@ def scrape_batch(url, key, batch_ids):
               ("shop_product_ids_comma_separated", ",".join(batch_ids))
               )
     try:
-        req = requests.get(url, params=params)
-
+        req = requests.get(url, params=params, timeout=120)
     except Exception as e:
+        # also catches requests.exceptions.Timeout, which is wanted
         logger.debug(f"Request failed. Exception {e}. Batch ids: {batch_ids}")
         return None
 
@@ -101,13 +100,6 @@ class CeneoProducer:
         with open(f'{kbc_datadir}in/tables/{input_filename}.csv') as input_file:
             csv_reader = reader(input_file)
             lines = tuple(line for line in csv_reader)[1:]
-            logger.debug(lines)
-            logger.debug({
-                re.search('[0-9]+', pid[0]).group()
-                for pid
-                # read all input file rows, except the header
-                in lines
-            })
             product_ids = {
                 re.search('[0-9]+', pid[0]).group()
                 for pid
@@ -154,7 +146,6 @@ class CeneoProducer:
                 ]
 
                 logger.info(f"Batch {batch_i} results collected. Queueing.")
-
                 self.task_queue.put(results)
 
             logger.info("Iteration over. Putting DONE to queue.")
