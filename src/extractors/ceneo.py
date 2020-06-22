@@ -98,7 +98,7 @@ class CeneoProducer:
         # read unique product ids
         with open(f'{kbc_datadir}in/tables/{input_filename}.csv') as input_file:
             lines = input_file.readlines()[1:]
-            logger.debug(str(lines))
+            logger.info(f'Read lines: {str(lines)}')
             product_ids = {
                 re.match('[0-9]+', pid.split(',', 1)[0]).group()
                 for pid
