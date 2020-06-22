@@ -1,7 +1,6 @@
 import datetime
 import itertools
 import logging
-import os
 import re
 import time
 from urllib.parse import urlparse
@@ -9,6 +8,7 @@ from urllib.parse import urlparse
 import requests
 
 logger = logging.getLogger('ceneo')
+logger.setLevel(logging.DEBUG)
 
 
 def parse_offer(offer_raw):
@@ -97,11 +97,13 @@ class CeneoProducer:
         input_filename = self.parameters.get("input_filename")
         # read unique product ids
         with open(f'{kbc_datadir}in/tables/{input_filename}.csv') as input_file:
+            lines = input_file.readlines()[1:]
+            logger.debug(str(lines))
             product_ids = {
                 re.match('[0-9]+', pid.split(',', 1)[0]).group()
                 for pid
                 # read all input file rows, except the header
-                in input_file.readlines()[1:]
+                in lines
                 if re.match('[0-9]+', pid.split(',', 1)[0])
             }
         return product_ids
