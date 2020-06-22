@@ -3,6 +3,7 @@ import itertools
 import logging
 import re
 import time
+from traceback import format_tb
 from urllib.parse import urlparse
 
 import requests
@@ -98,7 +99,7 @@ class CeneoProducer:
         # read unique product ids
         with open(f'{kbc_datadir}in/tables/{input_filename}.csv') as input_file:
             lines = input_file.readlines()[1:]
-            logger.info(f'Read lines: {str(lines)}')
+            logger.warning(f'Read lines: {str(lines)}')
             product_ids = {
                 re.match('[0-9]+', pid.split(',', 1)[0]).group()
                 for pid
@@ -148,5 +149,8 @@ class CeneoProducer:
                 self.task_queue.put(results)
 
             logger.info("Iteration over. Putting DONE to queue.")
+        except Exception as e:
+            trace = 'Traceback:\n' + ''.join(format_tb(e.__traceback__))
+            logger.error(f'Error occurred {e}', extra={'full_message': trace})
         finally:
             self.task_queue.put("DONE")
