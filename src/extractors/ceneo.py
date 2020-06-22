@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 import requests
 
-logger = logging.getLogger()
+logger = logging.getLogger('ceneo')
 logger.setLevel(logging.DEBUG)
 
 
@@ -96,33 +96,26 @@ class CeneoProducer:
     def parse_product_ids(self):
         kbc_datadir = self.datadir
         input_filename = self.parameters.get("input_filename")
-        logger.warning(f'opening file: {kbc_datadir}in/tables/{input_filename}.csv')
         # read unique product ids
         with open(f'{kbc_datadir}in/tables/{input_filename}.csv') as input_file:
-            logger.warning(f'File opened: {str(input_file)}')
             lines = input_file.readlines()[1:]
-            logger.warning(f'Read lines: {str(lines)}')
-            print(lines)
             product_ids = {
-                re.match('[0-9]+', pid.split(',', 1)[0]).group()
+                re.search('[0-9]+', pid.split(',', 1)[0]).group()
                 for pid
                 # read all input file rows, except the header
                 in lines
-                if re.match('[0-9]+', pid.split(',', 1)[0])
+                if re.search('[0-9]+', pid.split(',', 1)[0])
             }
 
-        print(product_ids)
         return product_ids
 
     def produce(self):
         try:
-            logger.warning('Starting CeneoProducer.produce')
             utctime_started = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             utctime_started_short = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
             parameters = self.parameters
-            logger.warning('Starting parsing products')
             product_ids = self.parse_product_ids()
-            logger.warning(f'Products parsed {str(product_ids)}')
+            logger.debug(f'Products parsed {str(product_ids)}')
             columns_mapping = parameters.get("columns_mapping")
             for batch_i, product_batch in batches(product_ids, batch_size=1000, sleep_time=1):
                 logger.info(f"Processing batch: {batch_i}")
