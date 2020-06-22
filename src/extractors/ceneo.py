@@ -3,6 +3,7 @@ import itertools
 import logging
 import re
 import time
+from csv import reader
 from traceback import format_tb
 from urllib.parse import urlparse
 
@@ -98,13 +99,21 @@ class CeneoProducer:
         input_filename = self.parameters.get("input_filename")
         # read unique product ids
         with open(f'{kbc_datadir}in/tables/{input_filename}.csv') as input_file:
-            lines = input_file.readlines()[1:]
-            product_ids = {
-                re.search('[0-9]+', pid.split(',', 1)[0]).group()
+            csv_reader = reader(input_file)
+            lines = tuple(line for line in csv_reader)[1:]
+            logger.debug(lines)
+            logger.debug({
+                re.search('[0-9]+', pid[0]).group()
                 for pid
                 # read all input file rows, except the header
                 in lines
-                if re.search('[0-9]+', pid.split(',', 1)[0])
+            })
+            product_ids = {
+                re.search('[0-9]+', pid[0]).group()
+                for pid
+                # read all input file rows, except the header
+                in lines
+                if re.search('[0-9]+', pid[0])
             }
 
         return product_ids
