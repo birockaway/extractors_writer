@@ -10,7 +10,7 @@ import requests
 
 logger = logging.getLogger('zbozi')
 
-TIMEOUT_DELTA = timedelta(hours=0, minutes=1)
+TIMEOUT_DELTA = timedelta(hours=5, minutes=45)
 EXECUTION_START = datetime.utcnow()
 URL_BASE = 'https://api.zbozi.cz'
 BATCH_SIZE_PRODUCTS = 10

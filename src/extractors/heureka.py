@@ -273,7 +273,7 @@ def save_runs_history(**kwargs):
     runs_history = pd.concat([kwargs["runs_today"], run_log])
     runs_history.to_csv(
         f'{kwargs["datadir"]}out/tables/{kwargs["runs_history_filename"]}.csv',
-        index=False,
+        index=False
     )
 
 
@@ -385,6 +385,10 @@ class HeurekaProducer:
                             for item in sublist
                         ]
                         logger.info(f"Parsed batch {batch_i}")
+                        if not batch_results:
+                            logger.warning(f"Batch {batch_i} if empty!")
+                            continue
+
                         start = datetime.utcnow()
                         batch_output, success_ids = process_batch_output(
                             batch_results,

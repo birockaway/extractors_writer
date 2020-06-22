@@ -98,11 +98,11 @@ class CeneoProducer:
         # read unique product ids
         with open(f'{kbc_datadir}in/tables/{input_filename}.csv') as input_file:
             product_ids = {
-                str(pid.replace('"', ''))
+                re.match('[0-9]+', pid.split(',', 1)[0]).group()
                 for pid
                 # read all input file rows, except the header
-                in input_file.read().split(os.linesep)[1:]
-                if re.match('"[0-9]+"$', pid)
+                in input_file.readlines()[1:]
+                if re.match('[0-9]+', pid.split(',', 1)[0])
             }
         return product_ids
 

@@ -57,6 +57,8 @@ class ArukeresoProducer:
     def produce(self):
         try:
             self.produce_results()
+        except Exception as e:
+            logger.error(e)
         finally:
             self.task_queue.put('DONE')
 

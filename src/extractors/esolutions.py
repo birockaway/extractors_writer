@@ -263,5 +263,7 @@ class ESolutionsProducer:
             self.read_manually_added_files()
             self.download_files_to_parse()
             self.parse_files()
+        except Exception as e:
+            logger.exception(e)
         finally:
             self.task_queue.put('DONE')

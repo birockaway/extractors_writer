@@ -9,6 +9,7 @@ import logging_gelf.formatters
 import logging_gelf.handlers
 from keboola import docker
 
+
 class Writer(object):
     def __init__(self, task_queue, columns_list, file_path):
         self.task_queue = task_queue
