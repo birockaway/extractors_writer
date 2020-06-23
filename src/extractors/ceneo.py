@@ -2,6 +2,7 @@ import datetime
 import itertools
 import logging
 import re
+import sys
 import time
 from csv import reader
 from traceback import format_tb
@@ -124,6 +125,9 @@ class CeneoProducer:
                 batch_result = scrape_batch(parameters.get("api_url"),
                                             parameters.get("#api_key"),
                                             product_batch)
+                if not batch_result:
+                    # skip empty batches
+                    continue
 
                 results = [
                     # filter item columns to only relevant ones and add utctime_started
@@ -152,5 +156,6 @@ class CeneoProducer:
         except Exception as e:
             trace = 'Traceback:\n' + ''.join(format_tb(e.__traceback__))
             logger.error(f'Error occurred {e}', extra={'full_message': trace})
+            sys.exit(1)
         finally:
             self.task_queue.put("DONE")
