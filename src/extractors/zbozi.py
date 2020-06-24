@@ -179,7 +179,9 @@ class ZboziProducer(object):
     def produce(self):
         try:
             batch_counter = 0
+            logger.debug(f'Start time: {EXECUTION_START}, timeout: {TIMEOUT_DELTA}')
             while self.next_url is not None and datetime.utcnow() - EXECUTION_START < TIMEOUT_DELTA:
+                logger.info(f'Next url: {self.next_url}')
                 logger.info(f'Starting batch #{batch_counter}')
                 rows_count = self.produce_batch()
                 logger.info(f'Finished batch #{batch_counter}, rows written: {rows_count}')
@@ -213,6 +215,7 @@ class ZboziProducer(object):
         content = json.loads(response.text)
         # set url for next run
         next_url = content.get('links', dict()).get('next')
+        logger.info(f'Next response url: {next_url}')
         self.next_url = next_url
         product_ids = [(str(item['itemId']), str(item['product']['productId']))
                        for item in content.get('data', list())
@@ -227,7 +230,7 @@ class ZboziProducer(object):
         excluded_ids = material_map['CSE_ID'].isin(previous_ids)
         logger.debug(f'Excluding from scrape: {material_map[excluded_ids]["CSE_ID"].values.tolist()}')
         material_map = material_map[~excluded_ids]
-        logger.info(f'Excluded {len(material_map) - before_exclude} materials from previous run')
+        logger.info(f'Excluded {before_exclude - len(material_map)} materials from previous run')
 
         #############################################################################
         # PRODUCT PAGES
