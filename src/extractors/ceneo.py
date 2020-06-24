@@ -126,8 +126,7 @@ class CeneoProducer:
                                             parameters.get("#api_key"),
                                             product_batch)
                 if not batch_result:
-                    # skip empty batches
-                    continue
+                    raise Exception(f"No results for batch {batch_i}")
 
                 results = [
                     # filter item columns to only relevant ones and add utctime_started
