@@ -221,12 +221,13 @@ class ZboziProducer(object):
 
         logger.debug('End product requests')
         material_map = pd.DataFrame(product_ids, columns=['MATERIAL', 'CSE_ID']).astype(object)
+        before_exclude = len(material_map)
         previous_ids = self.previous_df['CSE_ID'].to_list()
         # remove ids already scraped today
         excluded_ids = material_map['CSE_ID'].isin(previous_ids)
         logger.debug(f'Excluding from scrape: {material_map[excluded_ids]["CSE_ID"].values.tolist()}')
-        logger.info(f'Excluded {len(excluded_ids)} materials from previous run')
         material_map = material_map[~excluded_ids]
+        logger.info(f'Excluded {len(material_map) - before_exclude} materials from previous run')
 
         #############################################################################
         # PRODUCT PAGES
