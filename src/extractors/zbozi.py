@@ -37,6 +37,7 @@ class ZboziProducer(object):
         self.export_table = 'results'
         self.daily_uploads_file = 'zbozi_products.csv'
         self.previous_df = self.load_previous_ids()
+        logger.info(f'Loaded {len(self.previous_df)} previous material CSE_IDs')
 
         try:
             # load next url from file, if previous run ended early
@@ -190,6 +191,7 @@ class ZboziProducer(object):
         finally:
             # write url for next run to continue where this run left off
             self.update_keep_scraping()
+            logger.info(f'Saving gathered CSE_IDs, {self.previous_df.shape}')
             # write out all gathered ids for deduplication
             self.previous_df.to_csv(f'{self.datadir}out/tables/{self.daily_uploads_file}', index=False)
             # send ending token
@@ -223,6 +225,7 @@ class ZboziProducer(object):
         # remove ids already scraped today
         excluded_ids = material_map['CSE_ID'].isin(previous_ids)
         logger.debug(f'Excluding from scrape: {material_map[excluded_ids]["CSE_ID"].values.tolist()}')
+        logger.info(f'Excluded {len(excluded_ids)} materials from previous run')
         material_map = material_map[~excluded_ids]
 
         #############################################################################
