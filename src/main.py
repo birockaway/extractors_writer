@@ -46,7 +46,7 @@ class Writer(object):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO, handlers=[])  # do not create default stdout handler
+    logging.basicConfig(level=logging.DEBUG, handlers=[])  # do not create default stdout handler
     logger = logging.getLogger()
     try:
         logging_gelf_handler = logging_gelf.handlers.GELFTCPSocketHandler(
@@ -57,6 +57,7 @@ if __name__ == '__main__':
 
     logging_gelf_handler.setFormatter(logging_gelf.formatters.GELFFormatter(null_character=True))
     logger.addHandler(logging_gelf_handler)
+    logger.setLevel(logging.INFO)
 
     colnames = ['AVAILABILITY',
                 'COUNTRY',

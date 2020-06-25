@@ -9,8 +9,9 @@ import pandas as pd
 import requests
 
 logger = logging.getLogger('zbozi')
+logger.setLevel(logging.DEBUG)
 
-TIMEOUT_DELTA = timedelta(hours=5, minutes=45)
+TIMEOUT_DELTA = timedelta(hours=4, minutes=30)
 EXECUTION_START = datetime.utcnow()
 URL_BASE = 'https://api.zbozi.cz'
 BATCH_SIZE_PRODUCTS = 10
@@ -179,9 +180,9 @@ class ZboziProducer(object):
     def produce(self):
         try:
             batch_counter = 0
+            logger.debug(f'Starting run with source_id: "{SOURCE_ID}"')
             logger.debug(f'Start time: {EXECUTION_START}, timeout: {TIMEOUT_DELTA}')
             while self.next_url is not None and datetime.utcnow() - EXECUTION_START < TIMEOUT_DELTA:
-                logger.info(f'Next url: {self.next_url}')
                 logger.info(f'Starting batch #{batch_counter}')
                 rows_count = self.produce_batch()
                 logger.info(f'Finished batch #{batch_counter}, rows written: {rows_count}')
@@ -205,7 +206,7 @@ class ZboziProducer(object):
         except requests.exceptions.Timeout:
             response = None
 
-        while response and response.status_code // 100 != 2:
+        while not response or response.status_code // 100 != 2:
             time.sleep(1.01)
             try:
                 response = requests.get(f'{URL_BASE}{self.next_url}', auth=self.auth, timeout=120)
@@ -215,10 +216,12 @@ class ZboziProducer(object):
         content = json.loads(response.text)
         # set url for next run
         next_url = content.get('links', dict()).get('next')
-        logger.info(f'Next response url: {next_url}')
+        logger.info(f'Next request url: {next_url}')
         self.next_url = next_url
+        content_data = content.get('data', list())
+        logger.debug(f'Number of items: {len(content_data)}')
         product_ids = [(str(item['itemId']), str(item['product']['productId']))
-                       for item in content.get('data', list())
+                       for item in content_data
                        if item.get('product') is not None
                        ]
 
