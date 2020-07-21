@@ -17,7 +17,7 @@ logger = logging.getLogger('esolutions')
 class PricesHandler(xml.sax.ContentHandler):
     PRICE_ATTR_COLS_PREFIX = 'competitor_'
 
-    def __init__(self, *, task_queue, columns_mapping, column_names, filedata=None):
+    def __init__(self, *, task_queue, columns_mapping, column_names, distrchan, filedata=None):
         super().__init__()
         self.path = deque()
         self.current_row = {}
@@ -39,6 +39,7 @@ class PricesHandler(xml.sax.ContentHandler):
             if not cn.startswith(PricesHandler.PRICE_ATTR_COLS_PREFIX)
         ]
 
+        self.distrchan = distrchan
         self.filedata = filedata if filedata else {}
 
     def startElement(self, name, attrs):
@@ -75,7 +76,12 @@ class PricesHandler(xml.sax.ContentHandler):
             result['competitor_eshop'] = clean_eshop_name(result.get('competitor_eshop', ''))
 
             # mall product ids are under one of the two tags
-            result['MATERIAL'] = result.get('id') or result.get('in_user_1')
+            if self.distrchan == 'MA':
+                result['MATERIAL'] = result.get('id') or result.get('in_user_1')
+            elif self.distrchan == 'CZC':
+                result['MATERIAL'] = result.get('ID')
+
+            result['DISTRCHAN'] = self.distrchan
 
             # rename all we can, keep rest unchanged
             result = {self.columns_mapping.get(key, key): value for key, value in result.items()}
@@ -98,11 +104,13 @@ class PricesHandler(xml.sax.ContentHandler):
             self.current_content.append(content)
 
 
-def extract_country_from_filename(filename):
+def extract_country_and_distrchan_from_filename(filename):
     filename_lower = filename.lower()
-    country_lower = re.match('(mall-|pc-hf-scraping-materialy-)([a-z]{2})',
+    country_lower = re.match('(mall-|pc-hf-scraping-materialy-|czc-)([a-z]{2})',
                              filename_lower).group(2)
-    return country_lower.upper()
+    # czc files must be prefixed with czc
+    distrchan = 'CZC' if filename_lower.startswith('czc') else 'MA'
+    return country_lower.upper(), distrchan
 
 
 def clean_eshop_name(eshop):
@@ -114,13 +122,25 @@ def extract_frequency(filename):
     return 'direct' if '-hf-' not in filename else 'hf'
 
 
+def extract_timestamp_from_filename(filename, frequency):
+    if frequency == 'hf':
+        match = re.search(r'\d{4}-\d{2}-\d{2}-\d{2}', filename).group(0)
+        # here we extract both hour and date
+        result = f'{match[:10]} {match[11:]}:00:00'
+    else:
+        # assuming that low-frequency data relate to prices at midnight
+        # this helps prioritize hf records when daily data actually arrive later
+        match = re.search(r'\d{4}-\d{2}-\d{2}', filename).group(0)
+        result = f'{match[:10]} 00:00:00'
+    return result
+
+
 class ESolutionsProducer:
     def __init__(self, task_queue, datadir, parameters):
         self.task_queue = task_queue
         self.datadir = datadir
         self.parameters = parameters
 
-        self.utctime_started_datetime = datetime.datetime.utcnow()
         # log parameters (excluding sensitive designated by '#')
         logger.info({k: v for k, v in self.parameters.items() if "#" not in k})
         self.wanted_columns = self.parameters.get("wanted_columns")
@@ -235,20 +255,17 @@ class ESolutionsProducer:
             logger.info(f"Processing file {filename}")
 
             frequency = extract_frequency(filename)
-            country = extract_country_from_filename(filename)
-            if frequency == 'hf':
-                ts = self.utctime_started_datetime.strftime("%Y-%m-%d %H:%M:%S")
-            else:
-                # assuming that low-frequency data relate to prices at the beginning of the day
-                # this helps prioritize records when daily data actually arrive later
-                ts = self.utctime_started_datetime.strftime("%Y-%m-%d 00:00:00")
+            country, distrchan = extract_country_and_distrchan_from_filename(filename)
+
+            ts = extract_timestamp_from_filename(filename, frequency)
 
             h = PricesHandler(
                 task_queue=self.task_queue,
                 columns_mapping=self.columns_mapping,
                 column_names=self.wanted_columns,
+                distrchan=distrchan,
                 filedata={'SOURCE': frequency, 'FREQ': 'd', 'SOURCE_ID': filename, 'TS': ts,
-                          'COUNTRY': country, 'DISTRCHAN': 'MA'}
+                          'COUNTRY': country}
             )
             xml.sax.parse(file, h)
             logger.info(f"File {filename} processing finished.")
