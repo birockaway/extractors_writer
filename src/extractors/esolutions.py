@@ -79,7 +79,7 @@ class PricesHandler(xml.sax.ContentHandler):
             if self.distrchan == 'MA':
                 result['MATERIAL'] = result.get('id') or result.get('in_user_1')
             elif self.distrchan == 'CZC':
-                result['MATERIAL'] = result.get('ID')
+                result['MATERIAL'] = result.get('ID') or result.get('in_user_1')
 
             result['DISTRCHAN'] = self.distrchan
 
