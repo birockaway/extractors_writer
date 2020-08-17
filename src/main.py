@@ -77,7 +77,8 @@ if __name__ == '__main__':
                 'STOCK',
                 'TOP',
                 'TS',
-                'URL']
+                'URL',
+                'STRIKETHROUGH_PRICE']
     datadir = os.getenv('KBC_DATADIR', '/data/')
     path = f'{os.getenv("KBC_DATADIR")}out/tables/results.csv'
     pipeline = queue.Queue(maxsize=1000)
