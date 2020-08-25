@@ -106,8 +106,12 @@ class PricesHandler(xml.sax.ContentHandler):
 
 def extract_country_and_distrchan_from_filename(filename):
     filename_lower = filename.lower()
-    country_lower = re.match('(mall-|pc-hf-scraping-materialy-|czc-)([a-z]{2})',
-                             filename_lower).group(2)
+
+    if 'campaign' in filename_lower:
+        country_lower = re.match('(campaign_[a-z]+_)([a-z]{2})', filename_lower).group(2)
+    else:
+        country_lower = re.match('(mall-|pc-hf-scraping-materialy-|czc-)([a-z]{2})',
+                                 filename_lower).group(2)
     # czc files must be prefixed with czc
     distrchan = 'CZC' if filename_lower.startswith('czc') else 'MA'
     return country_lower.upper(), distrchan
