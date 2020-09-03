@@ -284,7 +284,9 @@ class HeurekaProducer:
         self.parameters = parameters
         self.colnames = ['AVAILABILITY', 'COUNTRY', 'CSE_ID', 'CSE_URL', 'DISTRCHAN', 'ESHOP',
                          'FREQ', 'HIGHLIGHTED_POSITION', 'MATERIAL', 'POSITION', 'PRICE', 'RATING',
-                         'REVIEW_COUNT', 'SOURCE', 'SOURCE_ID', 'STOCK', 'TOP', 'TS', 'URL']
+                         'REVIEW_COUNT', 'SOURCE', 'SOURCE_ID', 'STOCK', 'TOP', 'TS', 'URL',
+                         'PRODUCER', 'PRODUCT_NAME', 'CATEGORY'
+                         ]
 
     def produce(self):
         try:
