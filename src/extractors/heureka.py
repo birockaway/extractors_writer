@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import aiohttp
 import pandas as pd
 
-logger = logging.getLogger('heureka')
+logger = logging.getLogger("heureka")
 
 
 def process_product(product_json):
@@ -20,7 +20,8 @@ def process_product(product_json):
     product = {
         f"product_{k}": v
         for k, v in product_json.items()
-        if k in {
+        if k
+        in {
             "id",
             "name",
             "slug",
@@ -47,7 +48,9 @@ def process_offer(offer):
     extracts offer details for each shop from json response
     """
     offer_items = {"offer_" + k: v for k, v in offer.items()}
-    offer_items["offer_availability_type"] = offer_items.get("offer_availability", {}).get("type")
+    offer_items["offer_availability_type"] = offer_items.get(
+        "offer_availability", {}
+    ).get("type")
     offer_items["offer_availability_in_stock"] = (
         1 if offer_items["offer_availability_type"] == "IN_STOCK" else 0
     )
@@ -107,7 +110,7 @@ def process_response(response_json):
             ]
 
             all_shops = (
-                    shops_with_positions_flat + highlighted_shops_with_positions_flat
+                shops_with_positions_flat + highlighted_shops_with_positions_flat
             )
             result = [{**product, **shop} for shop in all_shops]
             return result
@@ -180,7 +183,7 @@ def load_full_material_map(datadir, material_mapping_filename, country):
         & pd.notnull(full_material_map["material"])
         & (full_material_map["cse_id"] != "")
         & pd.notnull(full_material_map["cse_id"])
-        ]
+    ]
     return full_material_map
 
 
@@ -190,7 +193,7 @@ def load_todays_runs_history(datadir, runs_history_filename):
     )
     runs_today = runs_history[
         runs_history["DATETIME"].dt.date == datetime.utcnow().date()
-        ]
+    ]
     return runs_today
 
 
@@ -208,14 +211,16 @@ def load_hourly_material_map(datadir, hourly_materials_filename, cse_material_ma
 def decide_run_type(runs_today_history, first_daily_load_utc_hour):
     run_type = "HOURLY"
     if ("DAILY" not in runs_today_history["RUN_TYPE"].unique()) and (
-            datetime.utcnow().hour >= first_daily_load_utc_hour
+        datetime.utcnow().hour >= first_daily_load_utc_hour
     ):
         run_type = "DAILY"
     logger.info(f"{run_type} load shall be executed.")
     return run_type
 
 
-def process_batch_output(batch_results, material_dictionary, naming_map, out_cols):
+def process_batch_output(
+    batch_results, material_dictionary, naming_map, out_cols, country
+):
     output = pd.DataFrame(batch_results, dtype=str)
     # take just one offer per eshop for a given product
     # later, we might want to select non-randomly
@@ -227,15 +232,26 @@ def process_batch_output(batch_results, material_dictionary, naming_map, out_col
     success_ids = set(output["product_id"].astype("int64").unique())
     start = datetime.utcnow()
     output = output.groupby(["product_id", "shop_id"], as_index=False).first()
-    logger.debug(f'DataFrame groupby time: {datetime.utcnow() - start}')
+    logger.debug(f"DataFrame groupby time: {datetime.utcnow() - start}")
     # FUNKY ERROR DIT NOT GET HERE
-    logger.info('Extracting eshop names.')
+    logger.info("Extracting eshop names.")
     start = datetime.utcnow()
-    output["ESHOP"] = (output["shop_homepage"].map(lambda x: urlparse(x).netloc)
-                       .str.replace(r'(www.)', r'', regex=True)
-                       .str.lower()
-                       )
-    logger.debug(f'ESHOP url parse time: {datetime.utcnow() - start}')
+    output["ESHOP"] = (
+        output["shop_homepage"]
+        .map(lambda x: urlparse(x).netloc)
+        .str.replace(r"(www.)", r"", regex=True)
+        .str.lower()
+    )
+    logger.debug(f"ESHOP url parse time: {datetime.utcnow() - start}")
+
+    output["URL"] = (
+        "https://heureka."
+        + country.lower()
+        + "/exit/"
+        + output["shop_slug"].astype(str)
+        + "/"
+        + output["offer_id"]
+    )
     # no need to merge on country as the loop runs only for one country
     logger.info("Merging batch with material map.")
     start = datetime.utcnow()
@@ -246,16 +262,18 @@ def process_batch_output(batch_results, material_dictionary, naming_map, out_col
     # third, merge dataframes
     output = pd.merge(
         output,
-        material_dictionary[["material", "distrchan", "cse_id"]].rename(columns=str.upper),
+        material_dictionary[["material", "distrchan", "cse_id"]].rename(
+            columns=str.upper
+        ),
         how="inner",
         left_on=["CSE_ID"],
-        right_on=["CSE_ID"]
+        right_on=["CSE_ID"],
     ).fillna("")
-    logger.debug(f'Merge output-material_dict time: {datetime.utcnow() - start}')
+    logger.debug(f"Merge output-material_dict time: {datetime.utcnow() - start}")
     start = datetime.utcnow()
     # use only columns that are needed and exist in dataframe
     output = output[output.columns.intersection(out_cols)].to_dict(orient="records")
-    logger.debug(f'output.to_dict time: {datetime.utcnow() - start}')
+    logger.debug(f"output.to_dict time: {datetime.utcnow() - start}")
     return output, success_ids
 
 
@@ -273,7 +291,7 @@ def save_runs_history(**kwargs):
     runs_history = pd.concat([kwargs["runs_today"], run_log])
     runs_history.to_csv(
         f'{kwargs["datadir"]}out/tables/{kwargs["runs_history_filename"]}.csv',
-        index=False
+        index=False,
     )
 
 
@@ -282,11 +300,30 @@ class HeurekaProducer:
         self.task_queue = task_queue
         self.datadir = datadir
         self.parameters = parameters
-        self.colnames = ['AVAILABILITY', 'COUNTRY', 'CSE_ID', 'CSE_URL', 'DISTRCHAN', 'ESHOP',
-                         'FREQ', 'HIGHLIGHTED_POSITION', 'MATERIAL', 'POSITION', 'PRICE', 'RATING',
-                         'REVIEW_COUNT', 'SOURCE', 'SOURCE_ID', 'STOCK', 'TOP', 'TS', 'URL',
-                         'PRODUCER', 'PRODUCT_NAME', 'CATEGORY'
-                         ]
+        self.colnames = [
+            "AVAILABILITY",
+            "COUNTRY",
+            "CSE_ID",
+            "CSE_URL",
+            "DISTRCHAN",
+            "ESHOP",
+            "FREQ",
+            "HIGHLIGHTED_POSITION",
+            "MATERIAL",
+            "POSITION",
+            "PRICE",
+            "RATING",
+            "REVIEW_COUNT",
+            "SOURCE",
+            "SOURCE_ID",
+            "STOCK",
+            "TOP",
+            "TS",
+            "URL",
+            "PRODUCER",
+            "PRODUCT_NAME",
+            "CATEGORY",
+        ]
 
     def produce(self):
         try:
@@ -297,7 +334,9 @@ class HeurekaProducer:
             parameters = self.parameters
             logger.info("Extracting parameters from config.")
 
-            cse_material_mapping_filename = parameters.get("cse_material_mapping_filename")
+            cse_material_mapping_filename = parameters.get(
+                "cse_material_mapping_filename"
+            )
             columns_mapping = parameters.get("columns_mapping")
             api_key = parameters.get("#api_key")
             countries_to_scrape = parameters.get("countries_to_scrape")
@@ -312,7 +351,9 @@ class HeurekaProducer:
                 hourly_materials_filename = parameters.get(country).get(
                     "hourly_materials_filename"
                 )
-                runs_history_filename = parameters.get(country).get("runs_history_filename")
+                runs_history_filename = parameters.get(country).get(
+                    "runs_history_filename"
+                )
                 batch_size = parameters.get(country).get("batch_size", 2490)
                 time_window_per_batch = parameters.get(country).get(
                     "time_window_per_batch", 16
@@ -323,10 +364,12 @@ class HeurekaProducer:
                 )
 
                 # decide run_type
-                logger.info('Loading runs history.')
-                runs_today = load_todays_runs_history(kbc_datadir, runs_history_filename)
+                logger.info("Loading runs history.")
+                runs_today = load_todays_runs_history(
+                    kbc_datadir, runs_history_filename
+                )
                 run_type = decide_run_type(runs_today, first_daily_load_utc_hour)
-                logger.info('Loading materials map.')
+                logger.info("Loading materials map.")
                 cse_material_map = load_full_material_map(
                     kbc_datadir, cse_material_mapping_filename, country
                 )
@@ -346,13 +389,13 @@ class HeurekaProducer:
 
                 with time_logger():
                     for batch_i, product_batch in enumerate(
-                            batches(
-                                product_ids,
-                                batch_size=batch_size,
-                                window_size=time_window_per_batch,
-                            )
+                        batches(
+                            product_ids,
+                            batch_size=batch_size,
+                            window_size=time_window_per_batch,
+                        )
                     ):
-                        logger.debug(f'Starting timing for batch {batch_i}')
+                        logger.debug(f"Starting timing for batch {batch_i}")
                         batch_start = datetime.utcnow()
                         for pid in product_batch:
                             attempts[pid] += 1
@@ -367,7 +410,7 @@ class HeurekaProducer:
                                 language=language,
                             )
                         )
-                        logger.debug(f'Scraping time: {datetime.utcnow() - start}')
+                        logger.debug(f"Scraping time: {datetime.utcnow() - start}")
                         logger.info(f"Scraped batch {batch_i}")
                         # flatten and transform results
                         batch_results = [
@@ -396,24 +439,33 @@ class HeurekaProducer:
                             batch_results,
                             material_dictionary=cse_material_map,
                             naming_map=columns_mapping,
-                            out_cols=self.colnames
+                            out_cols=self.colnames,
+                            country=country,
                         )
-                        logger.debug(f'process_batch_output time: {datetime.utcnow() - start}')
+                        logger.debug(
+                            f"process_batch_output time: {datetime.utcnow() - start}"
+                        )
                         failed_ids = set(product_batch).difference(success_ids)
 
                         if max_attempts > 1:
                             failed_under_max_attempts = [
-                                pid for pid in failed_ids if attempts[pid] < max_attempts
+                                pid
+                                for pid in failed_ids
+                                if attempts[pid] < max_attempts
                             ]
                             product_ids.extend(failed_under_max_attempts)
                         else:
                             failed_under_max_attempts = []
 
-                        logger.debug(f'BATCH TIME time: {datetime.utcnow() - batch_start}')
-                        logger.debug(f'End of timing for batch {batch_i}')
+                        logger.debug(
+                            f"BATCH TIME time: {datetime.utcnow() - batch_start}"
+                        )
+                        logger.debug(f"End of timing for batch {batch_i}")
                         logger.info(f"{len(success_ids)} IDs retrieved successfully")
                         logger.info(f"{len(failed_ids)} IDs failed")
-                        logger.info(f"{len(failed_under_max_attempts)} IDs requeued for extraction")
+                        logger.info(
+                            f"{len(failed_under_max_attempts)} IDs requeued for extraction"
+                        )
                         logger.info(f"Queueing batch {batch_i}")
                         self.task_queue.put(batch_output)
                         written_ids = written_ids.union(success_ids)
@@ -429,13 +481,15 @@ class HeurekaProducer:
                         missing_products=missing_products,
                         written_ids=written_ids,
                         runs_today=runs_today,
-                        runs_history_filename=runs_history_filename
+                        runs_history_filename=runs_history_filename,
                     )
-                    logger.debug(f'merging batch_results time: {datetime.utcnow() - start}')
+                    logger.debug(
+                        f"merging batch_results time: {datetime.utcnow() - start}"
+                    )
 
             logger.info("Producer completed. Putting DONE to queue.")
         except Exception as e:
-            trace = 'Traceback:\n' + ''.join(format_tb(e.__traceback__))
-            logger.error(f'Error occurred {e}', extra={'full_message': trace})
+            trace = "Traceback:\n" + "".join(format_tb(e.__traceback__))
+            logger.error(f"Error occurred {e}", extra={"full_message": trace})
         finally:
             self.task_queue.put("DONE")
