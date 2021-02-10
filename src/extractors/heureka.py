@@ -204,7 +204,7 @@ def load_additional_top_products(datadir, top_products_filename, country, materi
     top_products["source"] = "heureka"
     top_products["material"] = "no_internal_id"
     top_products["distrchan"] = "no_internal_id"
-    return top_products
+    return top_products[["material", "cse_id", "country", "distrchan", "source"]]
 
 
 def load_todays_runs_history(datadir, runs_history_filename):
