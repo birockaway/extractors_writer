@@ -176,6 +176,7 @@ def load_full_material_map(datadir, material_mapping_filename, country):
     full_material_map = pd.read_csv(
         f"{datadir}in/tables/{material_mapping_filename}.csv", dtype=str
     )
+
     full_material_map = full_material_map[
         (full_material_map["country"] == country)
         & (full_material_map["source"] == "heureka")
@@ -185,6 +186,25 @@ def load_full_material_map(datadir, material_mapping_filename, country):
         & pd.notnull(full_material_map["cse_id"])
     ]
     return full_material_map
+
+
+def load_additional_top_products(datadir, top_products_filename, country, material_map):
+    top_products = pd.read_csv(
+        f"{datadir}in/tables/{top_products_filename}.csv", dtype=str
+    )
+    top_products = top_products[
+        (top_products["country"] == country)
+        & (top_products["id"] != "")
+        & pd.notnull(top_products["id"])
+    ]
+    top_products = top_products.rename(columns={"id": "cse_id"})
+
+    mapped_materials = set(material_map["cse_id"].unique())
+    top_products = top_products[~top_products["cse_id"].isin(mapped_materials)]
+    top_products["source"] = "heureka"
+    top_products["material"] = "no_internal_id"
+    top_products["distrchan"] = "no_internal_id"
+    return top_products
 
 
 def load_todays_runs_history(datadir, runs_history_filename):
@@ -337,6 +357,7 @@ class HeurekaProducer:
             cse_material_mapping_filename = parameters.get(
                 "cse_material_mapping_filename"
             )
+            top_products_filename = parameters.get("top_products_filename")
             columns_mapping = parameters.get("columns_mapping")
             api_key = parameters.get("#api_key")
             countries_to_scrape = parameters.get("countries_to_scrape")
@@ -353,6 +374,9 @@ class HeurekaProducer:
                 )
                 runs_history_filename = parameters.get(country).get(
                     "runs_history_filename"
+                )
+                top_products_load_day = parameters.get(country).get(
+                    "top_products_load_day"
                 )
                 batch_size = parameters.get(country).get("batch_size", 2490)
                 time_window_per_batch = parameters.get(country).get(
@@ -373,9 +397,23 @@ class HeurekaProducer:
                 cse_material_map = load_full_material_map(
                     kbc_datadir, cse_material_mapping_filename, country
                 )
+                if top_products_load_day is not None:
+                    top_products_load_day_int = int(top_products_load_day)
+                    if datetime.utcnow().weekday() == top_products_load_day_int:
+                        logger.info("Adding top products to dict.")
+                        top_products = load_additional_top_products(
+                            kbc_datadir,
+                            top_products_filename,
+                            country,
+                            cse_material_map,
+                        )
+                        cse_material_map = pd.concat(
+                            [cse_material_map, top_products], sort=True
+                        )
+
                 if run_type == "HOURLY":
                     cse_material_map = load_hourly_material_map(
-                        kbc_datadir, hourly_materials_filename, cse_material_map
+                        kbc_datadir, hourly_materials_filename, cse_material_map,
                     )
 
                 original_product_ids = set(cse_material_map["cse_id"].astype("int64"))
