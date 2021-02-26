@@ -5,4 +5,4 @@ requests==2.23.0
 paramiko==2.7.1
 logging-gelf==0.0.26
 boto3==1.14.24
-aiohttp==3.6.2
+aiohttp==3.7.4
